@@ -16,7 +16,7 @@ import config
 FONT_SIZE_SMALL = 8
 FLIGHT_DISPLAY_SECONDS = 15
 DOT_CYCLE_SPEED = 0.5  # seconds per dot step
-PLANE_Y_OFFSET = 3
+PLANE_Y_OFFSET = 1
 PLANE_SPEED = 0.08  # seconds per pixel
 PLANE_WIDTH = 18
 PLANE_PAUSE_SECONDS = 2
@@ -80,7 +80,7 @@ def render_idle(matrix, font, stop_event):
 
     panel_w = config.PANEL_COLS * config.CHAIN_LENGTH
     panel_h = config.PANEL_ROWS
-    half_h = panel_h // 2
+    half_h = 17
 
     plane_x = -PLANE_WIDTH
     pause_until = None
@@ -133,14 +133,13 @@ def render_idle(matrix, font, stop_event):
         for px, py, color in plane_pixels:
             x = plane_x + px
             y = py + PLANE_Y_OFFSET
-            if 0 <= x < panel_w and 0 <= py < half_h:
+            if 0 <= x < panel_w and 0 <= py < panel_h:
                 draw.point((x, y), fill=color)
 
         # Draw scanning text on bottom half
         dots = "." * dot_count
         scanning_text = f"Scanning{dots}"
-        draw.text((5, half_h + 4), scanning_text,
-                  font=font, fill=config.COLOR_IDLE)
+        draw.text((5, 20), scanning_text, font=font, fill=config.COLOR_IDLE)
 
         matrix.SetImage(image, unsafe=False)
         time.sleep(0.01)  # ~100fps refresh, actual speed controlled above

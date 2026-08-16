@@ -1,111 +1,107 @@
 # planes.py
 import random
 
-# ── Airline color schemes ──────────────────────────────────────────────────────
-
 AIRLINE_SCHEMES = {
     "delta": {
         "name": "Delta",
-        "tail":         (200, 0, 20),      # red widget tail
-        "fuselage":     (245, 245, 248),   # white
-        "fuselage_dark":(15, 25, 80),      # navy belly stripe
-        "window":       (15, 25, 80),      # navy blue windows
-        "wing":         (185, 190, 200),   # gray
-        "engine":       (60, 65, 75),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (200, 0, 20),
+        "fuselage":     (245, 245, 248),
+        "fuselage_dark":(15, 25, 80),
+        "window":       (15, 25, 80),
+        "wing":         (185, 190, 200),
+        "engine":       (60, 65, 75),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "american": {
         "name": "American",
-        "tail":         (160, 165, 175),   # silver gray tail
-        "fuselage":     (235, 235, 238),   # near white
-        "fuselage_dark":(160, 165, 175),   # silver belly
-        "window":       (180, 0, 30),      # red stripe windows
-        "wing":         (175, 180, 190),   # silver
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (160, 165, 175),
+        "fuselage":     (235, 235, 238),
+        "fuselage_dark":(160, 165, 175),
+        "window":       (180, 0, 30),
+        "wing":         (175, 180, 190),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "southwest": {
         "name": "Southwest",
-        "tail":         (210, 35, 25),     # red tail
-        "fuselage":     (30, 100, 200),    # blue fuselage
-        "fuselage_dark":(20, 70, 150),     # darker blue belly
-        "window":       (240, 185, 0),     # yellow windows
-        "wing":         (195, 200, 210),   # gray
-        "engine":       (45, 50, 60),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 220, 0),     # yellow
+        "tail":         (210, 35, 25),
+        "fuselage":     (30, 100, 200),
+        "fuselage_dark":(20, 70, 150),
+        "window":       (240, 185, 0),
+        "wing":         (195, 200, 210),
+        "engine":       (45, 50, 60),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 220, 0),
     },
     "united": {
         "name": "United",
-        "tail":         (0, 25, 100),      # deep navy tail
-        "fuselage":     (240, 242, 245),   # white
-        "fuselage_dark":(0, 25, 100),      # navy belly
-        "window":       (190, 155, 0),     # gold windows
-        "wing":         (180, 185, 195),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (0, 25, 100),
+        "fuselage":     (240, 242, 245),
+        "fuselage_dark":(0, 25, 100),
+        "window":       (190, 155, 0),
+        "wing":         (180, 185, 195),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "suncountry": {
         "name": "Sun Country",
-        "tail":         (0, 60, 160),      # blue half of tail
-        "fuselage":     (245, 245, 248),   # white upper fuselage
-        "fuselage_dark":(220, 100, 20),    # orange lower fuselage
-        "window":       (220, 100, 20),    # orange windows
-        "wing":         (180, 185, 195),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (220, 100, 20),    # orange
+        "tail":         (0, 60, 160),
+        "fuselage":     (245, 245, 248),
+        "fuselage_dark":(220, 100, 20),
+        "window":       (220, 100, 20),
+        "wing":         (180, 185, 195),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (220, 100, 20),
     },
     "skywest": {
         "name": "SkyWest",
-        "tail":         (15, 40, 120),     # dark blue tail
-        "fuselage":     (215, 218, 222),   # light gray
-        "fuselage_dark":(140, 145, 155),   # darker gray belly
-        "window":       (30, 80, 190),     # blue windows
-        "wing":         (170, 175, 185),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (15, 40, 120),
+        "fuselage":     (215, 218, 222),
+        "fuselage_dark":(140, 145, 155),
+        "window":       (30, 80, 190),
+        "wing":         (170, 175, 185),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "endeavor": {
         "name": "Endeavor",
-        "tail":         (90, 30, 150),     # purple tail
-        "fuselage":     (225, 225, 228),   # light gray
-        "fuselage_dark":(150, 100, 190),   # purple belly
-        "window":       (140, 80, 200),    # purple windows
-        "wing":         (175, 178, 188),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (90, 30, 150),
+        "fuselage":     (225, 225, 228),
+        "fuselage_dark":(150, 100, 190),
+        "window":       (140, 80, 200),
+        "wing":         (175, 178, 188),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "republic": {
         "name": "Republic",
-        "tail":         (10, 35, 115),     # dark blue tail
-        "fuselage":     (238, 240, 244),   # white
-        "fuselage_dark":(10, 35, 115),     # navy belly
-        "window":       (50, 110, 210),    # blue windows
-        "wing":         (175, 180, 190),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (255, 70, 70),     # red
+        "tail":         (10, 35, 115),
+        "fuselage":     (238, 240, 244),
+        "fuselage_dark":(10, 35, 115),
+        "window":       (50, 110, 210),
+        "wing":         (175, 180, 190),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (255, 70, 70),
     },
     "aerlingus": {
         "name": "Aer Lingus",
-        "tail":         (0, 145, 110),     # bright teal tail
-        "fuselage":     (240, 242, 245),   # white
-        "fuselage_dark":(0, 100, 80),      # dark teal belly
-        "window":       (0, 175, 135),     # teal windows
-        "wing":         (175, 180, 190),   # gray
-        "engine":       (55, 60, 70),      # dark gray
-        "cockpit":      (110, 185, 255),   # blue tint
-        "nav_light":    (0, 175, 135),     # teal nav light
+        "tail":         (0, 145, 110),
+        "fuselage":     (240, 242, 245),
+        "fuselage_dark":(0, 100, 80),
+        "window":       (0, 175, 135),
+        "wing":         (175, 180, 190),
+        "engine":       (55, 60, 70),
+        "cockpit":      (110, 185, 255),
+        "nav_light":    (0, 175, 135),
     },
 }
-
-# ── Weighted random selection ──────────────────────────────────────────────────
 
 _WEIGHTS = {
     "delta":      12,
@@ -116,7 +112,7 @@ _WEIGHTS = {
     "skywest":    12,
     "endeavor":   12,
     "republic":   12,
-    "aerlingus":   4,   # ~3.2% — easter egg
+    "aerlingus":   4,
 }
 
 _AIRLINES = list(_WEIGHTS.keys())
@@ -124,19 +120,42 @@ _WEIGHT_VALUES = [_WEIGHTS[a] for a in _AIRLINES]
 
 
 def get_random_airline() -> dict:
-    """Return a random airline color scheme with weighted probability."""
     key = random.choices(_AIRLINES, weights=_WEIGHT_VALUES, k=1)[0]
     return AIRLINE_SCHEMES[key]
 
 
-# ── Plane pixel builder ────────────────────────────────────────────────────────
+def _fuselage_color(scheme: dict, x: int, y: int) -> tuple:
+    """
+    Returns the fuselage color for a given pixel position.
+    Handles special cases like Sun Country's diagonal split.
+    """
+    if scheme["name"] == "Sun Country":
+        # Diagonal split: orange forward-lower, white rear-upper
+        # Split point at x=9, diagonal goes top-right to bottom-left
+        # Forward (x < 9): orange below the diagonal, white above
+        # Rear (x >= 9): always white
+        if x >= 9:
+            return scheme["fuselage"]
+        else:
+            # Diagonal threshold — as x decreases toward nose,
+            # orange extends higher
+            diagonal_y = 4 + (9 - x) // 2
+            if y >= diagonal_y:
+                return scheme["fuselage_dark"]  # orange
+            else:
+                return scheme["fuselage"]        # white
+    else:
+        # Standard: fuselage_dark on top and bottom rows, fuselage in middle
+        if y in (4, 9):
+            return scheme["fuselage_dark"]
+        return scheme["fuselage"]
+
 
 def build_plane_pixels(scheme: dict) -> list:
     """
-    Build a list of (x, y, color) tuples for the plane sprite
-    using the given airline color scheme.
-
+    Build a list of (x, y, color) tuples for the plane sprite.
     Plane faces right, tail at x=0, nose at x=17.
+    Sprite is 18px wide x 17px tall (y=0 to y=16).
     """
     t  = scheme["tail"]
     f  = scheme["fuselage"]
@@ -150,84 +169,103 @@ def build_plane_pixels(scheme: dict) -> list:
     wg_dark = tuple(max(0, v - 40) for v in wg)
 
     pixels = [
-        # Tail: vertical stabilizer
+        # ── Tail: vertical stabilizer (taller now) ──
+        (0, 0, t),
         (0, 1, t),
         (0, 2, t),
         (0, 3, t),
+        (1, 1, t),
         (1, 2, t),
         (1, 3, t),
         (1, 4, t),
+        (2, 2, t),
+        (2, 3, t),
 
-        # Rear fuselage — dark belly bottom, white top
-        (2, 3, fd),
-        (2, 4, f),
+        # ── Rear fuselage ──
+        (2, 4, fd),
         (2, 5, f),
         (2, 6, f),
-        (2, 7, fd),
+        (2, 7, f),
+        (2, 8, f),
+        (2, 9, fd),
 
-        # Main fuselage — top row white, bottom row dark (belly stripe)
-        (3,  4, fd), (3,  5, f), (3,  6, f), (3,  7, fd),
-        (4,  4, fd), (4,  5, f), (4,  6, f), (4,  7, fd),
-        (5,  4, fd), (5,  5, f), (5,  6, f), (5,  7, fd),
-        (6,  4, fd), (6,  5, f), (6,  6, f), (6,  7, fd),
-        (7,  4, fd), (7,  5, f), (7,  6, f), (7,  7, fd),
-        (8,  4, fd), (8,  5, f), (8,  6, f), (8,  7, fd),
-        (9,  4, fd), (9,  5, f), (9,  6, f), (9,  7, fd),
-        (10, 4, fd), (10, 5, f), (10, 6, f), (10, 7, fd),
-        (11, 4, fd), (11, 5, f), (11, 6, f), (11, 7, fd),
-        (12, 4, fd), (12, 5, f), (12, 6, f), (12, 7, fd),
-        (13, 4, fd), (13, 5, f), (13, 6, f), (13, 7, fd),
-        (14, 4, fd), (14, 5, f), (14, 6, f), (14, 7, fd),
+        # ── Main fuselage body (4px tall: rows 4-9) ──
+    ]
 
-        # Cockpit and nose
+    # Build fuselage dynamically to handle Sun Country diagonal
+    for x in range(3, 15):
+        pixels.append((x, 4, _fuselage_color(scheme, x, 4)))
+        pixels.append((x, 5, _fuselage_color(scheme, x, 5)))
+        pixels.append((x, 6, _fuselage_color(scheme, x, 6)))
+        pixels.append((x, 7, _fuselage_color(scheme, x, 7)))
+        pixels.append((x, 8, _fuselage_color(scheme, x, 8)))
+        pixels.append((x, 9, _fuselage_color(scheme, x, 9)))
+
+    pixels += [
+        # ── Cockpit and nose ──
         (15, 3, c),
         (15, 4, c),
-        (15, 5, f),
+        (15, 5, c),
         (15, 6, f),
-        (15, 7, fd),
+        (15, 7, f),
+        (15, 8, f),
+        (15, 9, fd),
         (16, 4, c),
-        (16, 5, f),
-        (16, 6, fd),
+        (16, 5, c),
+        (16, 6, f),
+        (16, 7, f),
+        (16, 8, fd),
         (17, 5, f),
+        (17, 6, f),
+        (17, 7, fd),
 
-        # Passenger windows — window color as stripe
-        (5,  5, w),
-        (6,  5, w),
-        (7,  5, w),
-        (8,  5, w),
-        (9,  5, w),
-        (10, 5, w),
-        (11, 5, w),
-        (12, 5, w),
-        (13, 5, w),
-        (14, 5, w),
+        # ── Passenger windows (two rows for taller fuselage) ──
+        (5,  5, w), (5,  6, w),
+        (6,  5, w), (6,  6, w),
+        (7,  5, w), (7,  6, w),
+        (8,  5, w), (8,  6, w),
+        (9,  5, w), (9,  6, w),
+        (10, 5, w), (10, 6, w),
+        (11, 5, w), (11, 6, w),
+        (12, 5, w), (12, 6, w),
+        (13, 5, w), (13, 6, w),
+        (14, 5, w), (14, 6, w),
 
-        # Top wing
+        # ── Top wing (bigger) ──
         (6,  3, wg),
         (7,  2, wg),
-        (8,  2, wg),
-        (7,  1, wg),
+        (7,  3, wg),
         (8,  1, wg),
+        (8,  2, wg),
+        (9,  1, wg),
+        (9,  2, wg),
+        (10, 1, wg),
+        (10, 2, wg),
 
-        # Lower wing
-        (7,  8, wg),
-        (8,  8, wg),
-        (6,  9, wg),
-        (7,  9, wg),
-        (5,  10, wg),
+        # ── Lower wing (bigger) ──
         (6,  10, wg),
-        (4,  11, wg),
+        (7,  10, wg),
+        (7,  11, wg),
+        (6,  11, wg),
         (5,  11, wg),
-        (4,  12, wg_dark),
+        (5,  12, wg),
+        (4,  12, wg),
+        (4,  13, wg),
+        (3,  13, wg),
+        (3,  14, wg_dark),
+        (2,  14, wg_dark),
 
-        # Engine
-        (8,  9,  e),
-        (9,  9,  e),
-        (8,  10, wg),
-        (9,  10, wg),
+        # ── Engine (larger, under wing) ──
+        (7,  12, e),
+        (8,  12, e),
+        (9,  12, e),
+        (7,  13, wg),
+        (8,  13, wg),
+        (9,  13, wg),
 
-        # Navigation light
-        (4, 12, nl),
+        # ── Navigation light ──
+        (2, 14, nl),
+        (2, 15, nl),
     ]
 
     return pixels
