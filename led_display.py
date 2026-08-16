@@ -1,4 +1,5 @@
 # led_display.py
+from planes import get_random_airline, build_plane_pixels
 import time
 import threading
 
@@ -6,6 +7,11 @@ try:
     from rgbmatrix import RGBMatrix, RGBMatrixOptions
     from PIL import Image, ImageDraw, ImageFont
     HARDWARE_AVAILABLE = True
+
+    # Pick initial airline
+    current_scheme = get_random_airline()
+    plane_pixels = build_plane_pixels(current_scheme)
+    print(f"[IDLE] Next livery: {current_scheme['name']}")
 except ImportError:
     HARDWARE_AVAILABLE = False
     print("[DISPLAY] rgbmatrix not available — running in mock mode")
@@ -81,135 +87,6 @@ def render_idle(matrix, font, stop_event):
     panel_h = config.PANEL_ROWS
     half_h = panel_h // 2
 
-    # Pixel art plane — simple arrow shape
-    plane_pixels = [
-        # Tail: red vertical stabilizer
-        (0, 1, (220, 40, 40)),
-        (0, 2, (220, 40, 40)),
-        (0, 3, (220, 40, 40)),
-        (1, 2, (220, 40, 40)),
-        (1, 3, (220, 40, 40)),
-        (1, 4, (220, 40, 40)),
-
-        # Rear fuselage
-        (2, 3, (190, 205, 220)),
-        (2, 4, (235, 240, 245)),
-        (2, 5, (255, 255, 255)),
-        (2, 6, (255, 255, 255)),
-        (2, 7, (190, 205, 220)),
-
-        # Main fuselage: 3-pixel-high white body with gray shading
-        (3, 4, (190, 205, 220)),
-        (3, 5, (255, 255, 255)),
-        (3, 6, (255, 255, 255)),
-        (3, 7, (190, 205, 220)),
-
-        (4, 4, (190, 205, 220)),
-        (4, 5, (255, 255, 255)),
-        (4, 6, (255, 255, 255)),
-        (4, 7, (190, 205, 220)),
-
-        (5, 4, (190, 205, 220)),
-        (5, 5, (255, 255, 255)),
-        (5, 6, (255, 255, 255)),
-        (5, 7, (190, 205, 220)),
-
-        (6, 4, (190, 205, 220)),
-        (6, 5, (255, 255, 255)),
-        (6, 6, (255, 255, 255)),
-        (6, 7, (190, 205, 220)),
-
-        (7, 4, (190, 205, 220)),
-        (7, 5, (255, 255, 255)),
-        (7, 6, (255, 255, 255)),
-        (7, 7, (190, 205, 220)),
-
-        (8, 4, (190, 205, 220)),
-        (8, 5, (255, 255, 255)),
-        (8, 6, (255, 255, 255)),
-        (8, 7, (190, 205, 220)),
-
-        (9, 4, (190, 205, 220)),
-        (9, 5, (255, 255, 255)),
-        (9, 6, (255, 255, 255)),
-        (9, 7, (190, 205, 220)),
-
-        (10, 4, (190, 205, 220)),
-        (10, 5, (255, 255, 255)),
-        (10, 6, (255, 255, 255)),
-        (10, 7, (190, 205, 220)),
-
-        (11, 4, (190, 205, 220)),
-        (11, 5, (255, 255, 255)),
-        (11, 6, (255, 255, 255)),
-        (11, 7, (190, 205, 220)),
-
-        (12, 4, (190, 205, 220)),
-        (12, 5, (255, 255, 255)),
-        (12, 6, (255, 255, 255)),
-        (12, 7, (190, 205, 220)),
-
-        (13, 4, (190, 205, 220)),
-        (13, 5, (255, 255, 255)),
-        (13, 6, (255, 255, 255)),
-        (13, 7, (190, 205, 220)),
-
-        (14, 4, (190, 205, 220)),
-        (14, 5, (255, 255, 255)),
-        (14, 6, (255, 255, 255)),
-        (14, 7, (190, 205, 220)),
-
-        # Cockpit and rounded nose
-        (15, 3, (130, 195, 255)),
-        (15, 4, (130, 195, 255)),
-        (15, 5, (255, 255, 255)),
-        (15, 6, (255, 255, 255)),
-        (15, 7, (190, 205, 220)),
-        (16, 4, (130, 195, 255)),
-        (16, 5, (255, 255, 255)),
-        (16, 6, (190, 205, 220)),
-        (17, 5, (255, 255, 255)),
-
-        # Passenger windows
-        (5, 5, (50, 135, 230)),
-        (6, 5, (50, 135, 230)),
-        (7, 5, (50, 135, 230)),
-        (8, 5, (50, 135, 230)),
-        (9, 5, (50, 135, 230)),
-        (10, 5, (50, 135, 230)),
-        (11, 5, (50, 135, 230)),
-        (12, 5, (50, 135, 230)),
-        (13, 5, (50, 135, 230)),
-        (14, 5, (50, 135, 230)),
-
-        # Top wing
-        (6, 3, (225, 230, 235)),
-        (7, 2, (225, 230, 235)),
-        (8, 2, (225, 230, 235)),
-        (7, 1, (225, 230, 235)),
-        (8, 1, (225, 230, 235)),
-
-        # Lower wing
-        (7, 8, (225, 230, 235)),
-        (8, 8, (225, 230, 235)),
-        (6, 9, (225, 230, 235)),
-        (7, 9, (225, 230, 235)),
-        (5, 10, (225, 230, 235)),
-        (6, 10, (225, 230, 235)),
-        (4, 11, (225, 230, 235)),
-        (5, 11, (225, 230, 235)),
-        (4, 12, (180, 190, 205)),
-
-        # Engine below wing
-        (8, 9, (70, 80, 95)),
-        (9, 9, (70, 80, 95)),
-        (8, 10, (135, 145, 160)),
-        (9, 10, (135, 145, 160)),
-
-        # Navigation light on wingtip
-        (4, 12, (255, 70, 70)),
-    ]
-
     plane_x = -PLANE_WIDTH
     pause_until = None
 
@@ -247,6 +124,10 @@ def render_idle(matrix, font, stop_event):
             # Once that left edge reaches panel_w, the full plane is off-screen right.
             if plane_x >= panel_w:
                 pause_until = now + PLANE_PAUSE_SECONDS
+                # Pick a new airline for the next pass
+                current_scheme = get_random_airline()
+                plane_pixels = build_plane_pixels(current_scheme)
+                print(f"[IDLE] Next livery: {current_scheme['name']}")
 
         # Draw plane on top half
         for px, py, color in plane_pixels:
