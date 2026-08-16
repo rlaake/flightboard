@@ -7,11 +7,6 @@ try:
     from rgbmatrix import RGBMatrix, RGBMatrixOptions
     from PIL import Image, ImageDraw, ImageFont
     HARDWARE_AVAILABLE = True
-
-    # Pick initial airline
-    current_scheme = get_random_airline()
-    plane_pixels = build_plane_pixels(current_scheme)
-    print(f"[IDLE] Next livery: {current_scheme['name']}")
 except ImportError:
     HARDWARE_AVAILABLE = False
     print("[DISPLAY] rgbmatrix not available — running in mock mode")
@@ -93,6 +88,11 @@ def render_idle(matrix, font, stop_event):
     dot_count = 0
     last_dot_time = time.monotonic()
     last_frame_time = time.monotonic()
+
+    # Pick initial airline
+    current_scheme = get_random_airline()
+    plane_pixels = build_plane_pixels(current_scheme)
+    print(f"[IDLE] Next livery: {current_scheme['name']}")
 
     # Build frame
     image = Image.new("RGB", (panel_w, panel_h))
