@@ -13,7 +13,7 @@ except ImportError:
 
 import config
 
-FONT_SIZE_SMALL = 10
+FONT_SIZE_SMALL = 8
 FLIGHT_DISPLAY_SECONDS = 15
 DOT_CYCLE_SPEED = 0.5  # seconds per dot step
 PLANE_Y_OFFSET = 1
@@ -72,75 +72,98 @@ def render_flight_static(matrix, flight, font):
 
 def render_idle(matrix, font, stop_event):
     from PIL import Image, ImageDraw
+    from planes import (get_random_airline, build_plane_pixels,
+                        should_show_ufo, build_ufo_frame,
+                        UFO_WIDTH)
 
     panel_w = config.PANEL_COLS * config.CHAIN_LENGTH
     panel_h = config.PANEL_ROWS
 
-    from planes import get_random_airline, build_plane_pixels
-    current_scheme = get_random_airline()
-    current_pixels = build_plane_pixels(current_scheme)
-    print(f"[IDLE] Initial livery: {current_scheme['name']}")
-
-    # Plane state
-    plane_x = -PLANE_WIDTH
+    # Sprite state
+    sprite_x = -PLANE_WIDTH
     pause_until_plane = None
     last_plane_time = time.monotonic()
+    is_ufo = False
+    frame_count = 0
+
+    # Initial sprite
+    current_scheme = get_random_airline()
+    current_pixels = build_plane_pixels(current_scheme)
+    current_width = PLANE_WIDTH
+    print(f"[IDLE] Initial livery: {current_scheme['name']}")
 
     # Scroll state
-    scroll_text = "Scanning the skies"
-    
-    # Measure text width
+    scroll_text = "Scanning the sky"
     dummy = Image.new("RGB", (1, 1))
     dummy_draw = ImageDraw.Draw(dummy)
     bbox = dummy_draw.textbbox((0, 0), scroll_text, font=font)
     text_width = bbox[2] - bbox[0]
 
-    scroll_x = panel_w          # start offscreen right
+    scroll_x = panel_w
     pause_until_scroll = None
     last_scroll_time = time.monotonic()
-    SCROLL_SPEED = 0.06         # seconds per pixel
-    TEXT_PAUSE_SECONDS = 1      # pause after text scrolls off left
+    SCROLL_SPEED_TEXT = 0.06
+    TEXT_PAUSE_SECONDS = 1.5
 
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)
 
     while not stop_event.is_set():
         now = time.monotonic()
+        frame_count += 1
 
         draw.rectangle((0, 0, panel_w - 1, panel_h - 1), fill=(0, 0, 0))
 
-        # ── Plane movement ──
+        # ── Sprite movement ──
         if pause_until_plane is not None:
             if now >= pause_until_plane:
-                plane_x = -PLANE_WIDTH
+                # Decide: UFO or plane?
+                if should_show_ufo():
+                    is_ufo = True
+                    current_pixels = build_ufo_frame(0)
+                    current_width = UFO_WIDTH
+                    print("[IDLE] 👽 UFO incoming!")
+                else:
+                    is_ufo = False
+                    current_scheme = get_random_airline()
+                    current_pixels = build_plane_pixels(current_scheme)
+                    current_width = PLANE_WIDTH
+                    print(f"[IDLE] Next livery: {current_scheme['name']}")
+
+                sprite_x = -current_width
                 pause_until_plane = None
                 last_plane_time = now
-                # Pick new livery when plane resets
-                current_scheme = get_random_airline()
-                current_pixels = build_plane_pixels(current_scheme)
-                print(f"[IDLE] Next livery: {current_scheme['name']}")
+
         elif now - last_plane_time >= PLANE_SPEED:
-            plane_x += 1
+            sprite_x += 1
             last_plane_time = now
-            if plane_x >= panel_w:
+            if sprite_x >= panel_w:
                 pause_until_plane = now + PLANE_PAUSE_SECONDS
 
-        # ── Text scroll movement ──
+        # ── Text scroll ──
         if pause_until_scroll is not None:
             if now >= pause_until_scroll:
                 scroll_x = panel_w
                 pause_until_scroll = None
                 last_scroll_time = now
-        elif now - last_scroll_time >= SCROLL_SPEED:
+        elif now - last_scroll_time >= SCROLL_SPEED_TEXT:
             scroll_x -= 1
             last_scroll_time = now
             if scroll_x < -text_width:
                 pause_until_scroll = now + TEXT_PAUSE_SECONDS
 
-        # ── Draw plane ──
+        # ── Draw sprite ──
+        if is_ufo:
+            # Update rotating lights each frame
+            current_pixels = build_ufo_frame(frame_count // 3)
+            # Sine wave wobble — ±2 pixels vertical
+            wobble_y = int(math.sin(sprite_x * 0.3) * 2)
+        else:
+            wobble_y = 0
+
         for px, py, color in current_pixels:
-            x = plane_x + px
-            y = py + PLANE_Y_OFFSET
+            x = sprite_x + px
+            y = py + PLANE_Y_OFFSET + wobble_y
             if 0 <= x < panel_w and 0 <= y < panel_h:
                 draw.point((x, y), fill=color)
 

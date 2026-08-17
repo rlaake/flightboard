@@ -269,3 +269,116 @@ def build_plane_pixels(scheme: dict) -> list:
     ]
 
     return pixels
+
+# ── UFO ────────────────────────────────────────────────────────────────────────
+
+import math
+
+UFO_WIDTH = 20
+UFO_PROBABILITY = 1 / 20000  # ~once a week if plane resets every 22 seconds
+
+# Rotating light colors — each light cycles through these
+UFO_LIGHT_COLORS = [
+    (0, 255, 80),    # green
+    (255, 220, 0),   # yellow
+    (255, 60, 60),   # red
+    (0, 220, 255),   # cyan
+    (200, 0, 255),   # purple
+]
+
+UFO_PIXELS_BASE = [
+    # Dome — blue-white glow
+    (8,  0, (180, 220, 255)),
+    (9,  0, (200, 235, 255)),
+    (10, 0, (200, 235, 255)),
+    (11, 0, (180, 220, 255)),
+    (7,  1, (160, 210, 255)),
+    (8,  1, (220, 240, 255)),
+    (9,  1, (240, 250, 255)),
+    (10, 1, (240, 250, 255)),
+    (11, 1, (220, 240, 255)),
+    (12, 1, (160, 210, 255)),
+
+    # Upper saucer — bright silver
+    (5,  2, (180, 185, 195)),
+    (6,  2, (210, 215, 225)),
+    (7,  2, (225, 230, 240)),
+    (8,  2, (235, 238, 245)),
+    (9,  2, (240, 242, 248)),
+    (10, 2, (240, 242, 248)),
+    (11, 2, (235, 238, 245)),
+    (12, 2, (225, 230, 240)),
+    (13, 2, (210, 215, 225)),
+    (14, 2, (180, 185, 195)),
+
+    # Main disc — silver with dark edges
+    (3,  3, (140, 145, 155)),
+    (4,  3, (190, 195, 205)),
+    (5,  3, (215, 220, 228)),
+    (6,  3, (228, 232, 238)),
+    (7,  3, (235, 238, 245)),
+    (8,  3, (238, 240, 248)),
+    (9,  3, (240, 242, 250)),
+    (10, 3, (240, 242, 250)),
+    (11, 3, (238, 240, 248)),
+    (12, 3, (235, 238, 245)),
+    (13, 3, (228, 232, 238)),
+    (14, 3, (215, 220, 228)),
+    (15, 3, (190, 195, 205)),
+    (16, 3, (140, 145, 155)),
+
+    # Lower rim — darker gray
+    (4,  4, (120, 125, 135)),
+    (5,  4, (155, 160, 168)),
+    (6,  4, (170, 175, 182)),
+    (7,  4, (175, 178, 185)),
+    (8,  4, (178, 180, 188)),
+    (9,  4, (180, 182, 190)),
+    (10, 4, (180, 182, 190)),
+    (11, 4, (178, 180, 188)),
+    (12, 4, (175, 178, 185)),
+    (13, 4, (170, 175, 182)),
+    (14, 4, (155, 160, 168)),
+    (15, 4, (120, 125, 135)),
+
+    # Green glow trail pixels (behind UFO, dim)
+    (-1, 3, (0, 40, 0)),
+    (-2, 3, (0, 25, 0)),
+    (-3, 3, (0, 12, 0)),
+    (-1, 4, (0, 30, 0)),
+    (-2, 4, (0, 18, 0)),
+]
+
+# Light positions (x, y) relative to sprite — underneath the saucer
+UFO_LIGHT_POSITIONS = [
+    (5,  5),
+    (8,  5),
+    (11, 5),
+    (14, 5),
+]
+
+
+def should_show_ufo() -> bool:
+    """Returns True with UFO_PROBABILITY chance."""
+    return random.random() < UFO_PROBABILITY
+
+
+def build_ufo_frame(frame_count: int) -> list:
+    """
+    Build UFO pixel list for a given frame.
+    Lights rotate colors based on frame_count.
+    Returns list of (x, y, color) tuples.
+    """
+    pixels = list(UFO_PIXELS_BASE)
+
+    # Each light is offset in the color cycle
+    for i, (lx, ly) in enumerate(UFO_LIGHT_POSITIONS):
+        color_index = (frame_count + i * 2) % len(UFO_LIGHT_COLORS)
+        pixels.append((lx, ly, UFO_LIGHT_COLORS[color_index]))
+
+        # Small glow around each light
+        glow = tuple(v // 4 for v in UFO_LIGHT_COLORS[color_index])
+        pixels.append((lx - 1, ly, glow))
+        pixels.append((lx + 1, ly, glow))
+
+    return pixels
