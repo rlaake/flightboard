@@ -37,3 +37,8 @@ LED_RGB_SEQUENCE = "RBG"
 # Colors (R, G, B)
 COLOR_FLIGHT = (255, 200, 50)   # amber
 COLOR_IDLE = (100, 100, 255)    # soft blue
+
+# Display hold zone — how long to keep showing a flight after it enters the display zone
+# "display" = show until flight leaves DISPLAY_RADIUS_MILES
+# "watch"   = show until flight leaves WATCH_RADIUS_MILES (longer)
+DISPLAY_HOLD_ZONE = "display"

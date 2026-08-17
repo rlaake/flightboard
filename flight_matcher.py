@@ -23,24 +23,22 @@ departure_lock = threading.Lock()
 watch_zone = {}
 watch_lock = threading.Lock()
 
-display_queue = []
-queue_lock = threading.Lock()
-
-displayed = set()
-displayed_lock = threading.Lock()
+# active_flights: flights currently in display zone, shown until they leave
+# Structure: {callsign: {"callsign": str, "destination": str, "alt": any, "track": any}}
+active_flights = {}
+active_flights_lock = threading.Lock()
 
 
 # ── Selenium browser ───────────────────────────────────────────────────────────
 
 def make_driver():
-    """Create and return a configured headless Chromium driver."""
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-extensions")
-    options.add_argument("--blink-settings=imagesEnabled=false")  # skip images
+    options.add_argument("--blink-settings=imagesEnabled=false")
     options.binary_location = config.CHROMIUM_PATH
     service = Service(config.CHROMEDRIVER_PATH)
     return webdriver.Chrome(service=service, options=options)
@@ -49,16 +47,8 @@ def make_driver():
 # ── Callsign normalization ─────────────────────────────────────────────────────
 
 def normalize_callsign(raw: str, translate_to_icao: bool = False) -> str:
-    """
-    Extracts and normalizes a callsign from either ADS-B or MSP format.
-
-    MSP format:   'DeltaDL 1519'        -> 'DAL1519' (translate_to_icao=True)
-                  'SouthwestWN 3465'    -> 'SWA3465' (translate_to_icao=True)
-    ADS-B format: 'DAL1519 '            -> 'DAL1519'
-    """
     raw = raw.strip()
 
-    # MSP format — IATA code followed by space and flight number at end of string
     match = re.search(r'([A-Z][A-Z0-9])\s+(\d+)$', raw.upper())
     if match:
         code = match.group(1)
@@ -67,7 +57,6 @@ def normalize_callsign(raw: str, translate_to_icao: bool = False) -> str:
             code = IATA_TO_ICAO.get(code, code)
         return code + number
 
-    # Fallback for ADS-B ICAO format with no space e.g. 'DAL1519'
     match = re.search(r'([A-Z]{3})(\d+)', raw.upper())
     if match:
         return match.group(1) + match.group(2)
@@ -78,7 +67,6 @@ def normalize_callsign(raw: str, translate_to_icao: bool = False) -> str:
 # ── Departure table helpers ────────────────────────────────────────────────────
 
 def load_cache():
-    """Load departure table from disk on startup."""
     try:
         with open(config.DEPARTURE_CACHE_PATH, "r") as f:
             data = json.load(f)
@@ -92,7 +80,6 @@ def load_cache():
 
 
 def save_cache():
-    """Persist departure table to disk."""
     try:
         with departure_lock:
             snapshot = dict(departure_table)
@@ -103,16 +90,10 @@ def save_cache():
 
 
 def lookup_departure(callsign: str, table_snapshot: dict) -> str:
-    """
-    Look up destination for a callsign, accounting for regional operators
-    flying under a major carrier's flight number.
-    """
-    # Direct match
     entry = table_snapshot.get(callsign)
     if entry:
         return entry.get("destination", "Unknown")
 
-    # Regional operator remap e.g. SKW3847 -> DAL3847
     match = re.match(r'([A-Z]{3})(\d+)', callsign)
     if match:
         operating_code = match.group(1)
@@ -142,10 +123,6 @@ def haversine_miles(lat1, lon1, lat2, lon2):
 # ── MSP scraper ────────────────────────────────────────────────────────────────
 
 def fetch_msp_page(driver, page_number: int) -> str:
-    """
-    Fetch a single page of MSP departures.
-    Returns HTML string or empty string on failure.
-    """
     if page_number == 1:
         url = config.MSP_URL
     else:
@@ -165,15 +142,10 @@ def fetch_msp_page(driver, page_number: int) -> str:
 
 
 def fetch_all_msp_html() -> list:
-    """
-    Launch headless Chromium, scrape all pages of MSP departures.
-    Returns list of HTML strings, one per page.
-    """
     pages_html = []
     driver = make_driver()
 
     try:
-        # Always fetch page 1
         print("[MSP] Fetching page 1...")
         html = fetch_msp_page(driver, 1)
         if not html:
@@ -182,7 +154,6 @@ def fetch_all_msp_html() -> list:
 
         pages_html.append(html)
 
-        # Try pages 2 and 3 — stop if table comes back empty
         for page_num in range(2, 4):
             print(f"[MSP] Fetching page {page_num}...")
             page_html = fetch_msp_page(driver, page_num)
@@ -207,7 +178,6 @@ def fetch_all_msp_html() -> list:
 
 
 def parse_departures(html: str) -> dict:
-    """Parse rendered HTML into a callsign -> destination dict."""
     soup = BeautifulSoup(html, "html.parser")
     table = soup.select_one("table.flight-search-results")
     if not table:
@@ -231,7 +201,6 @@ def parse_departures(html: str) -> dict:
 
 
 def scrape_msp_departures():
-    """Scrape all pages of MSP departures and update the shared departure table."""
     pages_html = fetch_all_msp_html()
     if not pages_html:
         print("[MSP] Scrape returned no pages")
@@ -255,7 +224,6 @@ def scrape_msp_departures():
                 "updated_at": now,
             }
 
-        # Evict stale entries
         cutoff = now - config.DEPARTURE_MAX_AGE
         stale = [k for k, v in departure_table.items()
                  if v["updated_at"] < cutoff]
@@ -270,7 +238,6 @@ def scrape_msp_departures():
 
 
 def msp_scraper_thread():
-    """Scrape MSP departures on a regular interval with jitter."""
     while True:
         scrape_msp_departures()
         jitter = random.uniform(-60, 60)
@@ -279,10 +246,14 @@ def msp_scraper_thread():
 
 # ── ADS-B poller ───────────────────────────────────────────────────────────────
 
+def _hold_radius() -> float:
+    """Return the radius used to determine when to stop showing a flight."""
+    if config.DISPLAY_HOLD_ZONE == "watch":
+        return config.WATCH_RADIUS_MILES
+    return config.DISPLAY_RADIUS_MILES
+
+
 def adsb_poller_thread():
-    """
-    Poll aircraft.json, run two-stage geofence, push matches to display queue.
-    """
     while True:
         try:
             with open(config.ADSB_PATH, "r") as f:
@@ -338,36 +309,54 @@ def adsb_poller_thread():
                                 watch_zone[callsign]["min_dist"], dist
                             )
 
-                    # Display zone trigger
-                    with displayed_lock:
-                        already_displayed = callsign in displayed
+                    # Enter display zone — add to active_flights if not already there
+                    if dist <= config.DISPLAY_RADIUS_MILES:
+                        with active_flights_lock:
+                            if callsign not in active_flights:
+                                with watch_lock:
+                                    flight_info = dict(
+                                        watch_zone.get(callsign, {})
+                                    )
+                                active_flights[callsign] = flight_info
+                                print(f"[DISPLAY] {callsign} | {dist:.2f} mi | "
+                                      f"{alt} ft | "
+                                      f"-> {flight_info.get('destination', 'Unknown')}")
 
-                    if dist <= config.DISPLAY_RADIUS_MILES and not already_displayed:
-                        with displayed_lock:
-                            displayed.add(callsign)
+            # ── Remove flights that have left the hold zone ──
+            hold_radius = _hold_radius()
 
-                        with watch_lock:
-                            flight_info = dict(watch_zone.get(callsign, {}))
+            # Build set of callsigns still within hold radius
+            current_in_hold = set()
+            for ac in aircraft_list:
+                lat = ac.get("lat")
+                lon = ac.get("lon")
+                seen_pos = ac.get("seen_pos", 999)
+                flight = ac.get("flight", "").strip()
+                if not lat or not lon or seen_pos > config.MAX_SEEN_POS or not flight:
+                    continue
+                callsign = normalize_callsign(flight)
+                dist = haversine_miles(
+                    config.HOME_LAT, config.HOME_LON, lat, lon
+                )
+                if dist <= hold_radius:
+                    current_in_hold.add(callsign)
 
-                        with queue_lock:
-                            if not any(f["callsign"] == callsign
-                                       for f in display_queue):
-                                display_queue.append(flight_info)
+            with active_flights_lock:
+                exited_display = [c for c in active_flights
+                                  if c not in current_in_hold]
+                for callsign in exited_display:
+                    entry = active_flights.pop(callsign)
+                    print(f"[DISPLAY END] {callsign} left "
+                          f"{config.DISPLAY_HOLD_ZONE} zone")
 
-                        print(f"[DISPLAY] {callsign} | {dist:.2f} mi | "
-                              f"{alt} ft | "
-                              f"-> {flight_info.get('destination', 'Unknown')}")
-
-            # Clean up flights that have left the watch zone
+            # Clean up watch zone for flights that left watch radius entirely
             with watch_lock:
-                exited = [c for c in watch_zone
-                          if c not in current_callsigns]
-                for callsign in exited:
+                exited_watch = [c for c in watch_zone
+                                if c not in current_callsigns]
+                for callsign in exited_watch:
                     entry = watch_zone.pop(callsign)
                     print(f"[EXIT] {callsign} left watch zone "
                           f"(closest: {entry['min_dist']:.2f} mi)")
-                    with displayed_lock:
-                        displayed.discard(callsign)
 
         except Exception as e:
             print(f"[ADSB] Poll failed: {e}")
@@ -377,23 +366,18 @@ def adsb_poller_thread():
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def get_display_flights():
-    """Called by led_display to get current flights to show."""
-    with queue_lock:
-        return list(display_queue)
-
-
-def consume_display_flight(callsign: str):
-    """Remove a flight from the display queue after it has been shown."""
-    with queue_lock:
-        for i, f in enumerate(display_queue):
-            if f["callsign"] == callsign:
-                display_queue.pop(i)
-                break
+def get_active_flights() -> list:
+    """
+    Returns list of flights currently in the display zone.
+    led_display calls this to know what to show.
+    Flights stay in this list until they leave the hold zone —
+    no consume step needed.
+    """
+    with active_flights_lock:
+        return list(active_flights.values())
 
 
 def start():
-    """Start all background threads."""
     load_cache()
     threading.Thread(target=msp_scraper_thread, daemon=True).start()
     threading.Thread(target=adsb_poller_thread, daemon=True).start()
