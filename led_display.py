@@ -15,14 +15,14 @@ except ImportError:
 import config
 
 FONT_SIZE_SMALL = 10
-FLIGHT_DISPLAY_SECONDS = 15
-DOT_CYCLE_SPEED = 0.5  # seconds per dot step
+DOT_CYCLE_SPEED = 0.5
 PLANE_Y_OFFSET = 1
-PLANE_SPEED = 0.08  # seconds per pixel
+PLANE_SPEED = 0.08
 PLANE_WIDTH = 18
 PLANE_PAUSE_SECONDS = 2
 SCROLL_SPEED_TEXT = 0.06
 TEXT_PAUSE_SECONDS = 1
+DEST_SCROLL_SPEED = 0.08   # seconds per pixel for destination scroll
 
 
 def make_matrix():
@@ -48,10 +48,19 @@ def load_font(size):
         return ImageFont.load_default()
 
 
-def render_flight_static(matrix, flight, font):
+def measure_text(text, font):
+    from PIL import Image, ImageDraw
+    dummy = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(dummy)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0]
+
+
+def render_flight(matrix, font, get_active_flights, stop_event):
     """
-    Display flight info statically — callsign on top line, destination on bottom.
-    Holds for FLIGHT_DISPLAY_SECONDS then returns.
+    Show flight info — callsign static on top line, destination scrolling
+    on bottom line. Runs until stop_event is set or active_flights empties.
+    Handles flight changes mid-display cleanly.
     """
     from PIL import Image, ImageDraw
 
@@ -61,16 +70,55 @@ def render_flight_static(matrix, flight, font):
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)
 
-    callsign = flight.get("callsign", "")
-    destination = flight.get("destination", "Unknown")
+    current_callsign = None
+    dest_scroll_x = panel_w
+    last_scroll_time = time.monotonic()
 
-    # Top line — callsign
-    draw.text((2, 2), callsign, font=font, fill=config.COLOR_FLIGHT)
-    # Bottom line — destination
-    draw.text((2, panel_h // 2), destination, font=font, fill=config.COLOR_FLIGHT)
+    while not stop_event.is_set():
+        flights = get_active_flights()
 
-    matrix.SetImage(image.convert("RGB"))
-    time.sleep(FLIGHT_DISPLAY_SECONDS)
+        if not flights:
+            # No flights left — signal caller to return to idle
+            break
+
+        # Always show first active flight
+        flight = flights[0]
+        callsign = flight.get("callsign", "")
+        destination = flight.get("destination", "Unknown")
+
+        # Reset scroll if flight changed
+        if callsign != current_callsign:
+            current_callsign = callsign
+            dest_scroll_x = panel_w
+            last_scroll_time = time.monotonic()
+            print(f"[DISPLAY] Now showing: {callsign} -> {destination}")
+
+        now = time.monotonic()
+
+        # Advance destination scroll
+        if now - last_scroll_time >= DEST_SCROLL_SPEED:
+            dest_scroll_x -= 1
+            last_scroll_time = now
+
+        # Measure destination text width for wraparound
+        dest_width = measure_text(destination, font)
+
+        # Once text has fully scrolled off left, reset to right
+        if dest_scroll_x < -dest_width:
+            dest_scroll_x = panel_w
+
+        # Draw frame
+        draw.rectangle((0, 0, panel_w - 1, panel_h - 1), fill=(0, 0, 0))
+
+        # Top line — callsign static
+        draw.text((2, 2), callsign, font=font, fill=config.COLOR_FLIGHT)
+
+        # Bottom line — destination scrolling
+        draw.text((dest_scroll_x, panel_h // 2), destination,
+                  font=font, fill=config.COLOR_FLIGHT)
+
+        matrix.SetImage(image, unsafe=False)
+        time.sleep(0.01)
 
 
 def render_idle(matrix, font, stop_event):
@@ -82,20 +130,17 @@ def render_idle(matrix, font, stop_event):
     panel_w = config.PANEL_COLS * config.CHAIN_LENGTH
     panel_h = config.PANEL_ROWS
 
-    # Sprite state
     sprite_x = -PLANE_WIDTH
     pause_until_plane = None
     last_plane_time = time.monotonic()
     is_ufo = False
     frame_count = 0
 
-    # Initial sprite
     current_scheme = get_random_airline()
     current_pixels = build_plane_pixels(current_scheme)
     current_width = PLANE_WIDTH
     print(f"[IDLE] Initial livery: {current_scheme['name']}")
 
-    # Scroll state
     scroll_text = "Scanning the sky"
     dummy = Image.new("RGB", (1, 1))
     dummy_draw = ImageDraw.Draw(dummy)
@@ -105,7 +150,7 @@ def render_idle(matrix, font, stop_event):
     scroll_x = panel_w
     pause_until_scroll = None
     last_scroll_time = time.monotonic()
-    
+
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)
 
@@ -118,7 +163,6 @@ def render_idle(matrix, font, stop_event):
         # ── Sprite movement ──
         if pause_until_plane is not None:
             if now >= pause_until_plane:
-                # Decide: UFO or plane?
                 if should_show_ufo():
                     is_ufo = True
                     current_pixels = build_ufo_frame(0)
@@ -155,9 +199,7 @@ def render_idle(matrix, font, stop_event):
 
         # ── Draw sprite ──
         if is_ufo:
-            # Update rotating lights each frame
             current_pixels = build_ufo_frame(frame_count // 3)
-            # Sine wave wobble — ±2 pixels vertical
             wobble_y = int(math.sin(sprite_x * 0.3) * 2)
         else:
             wobble_y = 0
@@ -168,7 +210,6 @@ def render_idle(matrix, font, stop_event):
             if 0 <= x < panel_w and 0 <= y < panel_h:
                 draw.point((x, y), fill=color)
 
-        # ── Draw scrolling text ──
         draw.text((scroll_x, 20), scroll_text,
                   font=font, fill=config.COLOR_IDLE)
 
@@ -181,30 +222,33 @@ def render_idle(matrix, font, stop_event):
 def mock_display_flight(flight):
     callsign = flight.get("callsign", "")
     destination = flight.get("destination", "Unknown")
-    print(f"\n[DISPLAY]")
-    print(f"  {callsign}")
-    print(f"  {destination}")
-    print(f"  (holding {FLIGHT_DISPLAY_SECONDS}s...)")
-    time.sleep(FLIGHT_DISPLAY_SECONDS)
+    print(f"\r[DISPLAY] {callsign:10s} | {destination}", end="", flush=True)
 
 
 def mock_display_idle():
     for dots in range(4):
-        print(f"\r[IDLE] ✈  Scanning{'.' * dots}   ", end="", flush=True)
+        print(f"\r[IDLE] ✈  Scanning the sky{'.' * dots}   ",
+              end="", flush=True)
         time.sleep(DOT_CYCLE_SPEED)
 
 
 # ── Main display loop ──────────────────────────────────────────────────────────
 
-def run(get_display_flights, consume_display_flight=None):
+def run(get_active_flights):
+    """
+    Main display loop.
+    get_active_flights: callable returning list of currently active flights.
+    No consume step — flights stay until flight_matcher removes them.
+    """
     font = load_font(FONT_SIZE_SMALL) if HARDWARE_AVAILABLE else None
     matrix = make_matrix() if HARDWARE_AVAILABLE else None
 
     print("[DISPLAY] Starting display loop")
 
-    # Stop event for idle animation thread
     idle_stop = threading.Event()
+    flight_stop = threading.Event()
     idle_thread = None
+    flight_thread = None
 
     def start_idle():
         nonlocal idle_thread
@@ -221,45 +265,46 @@ def run(get_display_flights, consume_display_flight=None):
         idle_stop.set()
         if idle_thread:
             idle_thread.join(timeout=1)
+        if HARDWARE_AVAILABLE:
+            matrix.Clear()
 
-    # Start idle animation initially
+    def start_flight():
+        nonlocal flight_thread
+        flight_stop.clear()
+        if HARDWARE_AVAILABLE:
+            flight_thread = threading.Thread(
+                target=render_flight,
+                args=(matrix, font, get_active_flights, flight_stop),
+                daemon=True
+            )
+            flight_thread.start()
+
+    def stop_flight():
+        flight_stop.set()
+        if flight_thread:
+            flight_thread.join(timeout=1)
+        if HARDWARE_AVAILABLE:
+            matrix.Clear()
+
     start_idle()
+    in_flight_mode = False
 
     while True:
-        flights = get_display_flights()
+        flights = get_active_flights()
 
-        if flights:
-            # Stop idle animation
+        if flights and not in_flight_mode:
+            # Transition to flight display
             stop_idle()
+            start_flight()
+            in_flight_mode = True
+            print(f"[DISPLAY] Entering flight mode: "
+                  f"{flights[0].get('callsign')}")
 
-            if len(flights) == 1:
-                # Single flight — show statically
-                if HARDWARE_AVAILABLE:
-                    render_flight_static(matrix, flights[0], font)
-                else:
-                    mock_display_flight(flights[0])
-
-                if consume_display_flight:
-                    consume_display_flight(flights[0]["callsign"])
-
-            else:
-                # Multiple flights — alternate
-                for flight in flights:
-                    if HARDWARE_AVAILABLE:
-                        render_flight_static(matrix, flight, font)
-                    else:
-                        mock_display_flight(flight)
-
-                    if consume_display_flight:
-                        consume_display_flight(flight["callsign"])
-
-            # Resume idle after showing flights
-            if HARDWARE_AVAILABLE:
-                matrix.Clear()
+        elif not flights and in_flight_mode:
+            # Transition back to idle
+            stop_flight()
             start_idle()
+            in_flight_mode = False
+            print("[DISPLAY] Returning to idle")
 
-        else:
-            if not HARDWARE_AVAILABLE:
-                mock_display_idle()
-
-        time.sleep(0.1)
+        time.sleep(0.2)
