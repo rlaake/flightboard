@@ -2,6 +2,7 @@
 from planes import get_random_airline, build_plane_pixels
 import time
 import threading
+import math
 
 try:
     from rgbmatrix import RGBMatrix, RGBMatrixOptions
