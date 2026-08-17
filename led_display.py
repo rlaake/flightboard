@@ -14,13 +14,15 @@ except ImportError:
 
 import config
 
-FONT_SIZE_SMALL = 8
+FONT_SIZE_SMALL = 10
 FLIGHT_DISPLAY_SECONDS = 15
 DOT_CYCLE_SPEED = 0.5  # seconds per dot step
 PLANE_Y_OFFSET = 1
 PLANE_SPEED = 0.08  # seconds per pixel
 PLANE_WIDTH = 18
 PLANE_PAUSE_SECONDS = 2
+SCROLL_SPEED_TEXT = 0.06
+TEXT_PAUSE_SECONDS = 1
 
 
 def make_matrix():
@@ -103,9 +105,7 @@ def render_idle(matrix, font, stop_event):
     scroll_x = panel_w
     pause_until_scroll = None
     last_scroll_time = time.monotonic()
-    SCROLL_SPEED_TEXT = 0.06
-    TEXT_PAUSE_SECONDS = 1.5
-
+    
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)
 
