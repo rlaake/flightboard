@@ -71,78 +71,85 @@ def render_flight_static(matrix, flight, font):
 
 
 def render_idle(matrix, font, stop_event):
-    """
-    Idle animation — plane scrolls across top half, 
-    'Scanning' with animated dots on bottom half.
-    Runs until stop_event is set.
-    """
     from PIL import Image, ImageDraw
 
     panel_w = config.PANEL_COLS * config.CHAIN_LENGTH
     panel_h = config.PANEL_ROWS
-    half_h = 17
 
-    plane_x = -PLANE_WIDTH
-    pause_until = None
-
-    dot_count = 0
-    last_dot_time = time.monotonic()
-    last_frame_time = time.monotonic()
-
-    # Pick initial airline
+    from planes import get_random_airline, build_plane_pixels
     current_scheme = get_random_airline()
-    plane_pixels = build_plane_pixels(current_scheme)
-    print(f"[IDLE] Next livery: {current_scheme['name']}")
+    current_pixels = build_plane_pixels(current_scheme)
+    print(f"[IDLE] Initial livery: {current_scheme['name']}")
 
-    # Build frame
+    # Plane state
+    plane_x = -PLANE_WIDTH
+    pause_until_plane = None
+    last_plane_time = time.monotonic()
+
+    # Scroll state
+    scroll_text = "Scanning the sky"
+    
+    # Measure text width
+    dummy = Image.new("RGB", (1, 1))
+    dummy_draw = ImageDraw.Draw(dummy)
+    bbox = dummy_draw.textbbox((0, 0), scroll_text, font=font)
+    text_width = bbox[2] - bbox[0]
+
+    scroll_x = panel_w          # start offscreen right
+    pause_until_scroll = None
+    last_scroll_time = time.monotonic()
+    SCROLL_SPEED = 0.06         # seconds per pixel
+    TEXT_PAUSE_SECONDS = 1.5    # pause after text scrolls off left
+
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)
 
     while not stop_event.is_set():
         now = time.monotonic()
 
-        # Clear the prior frame
         draw.rectangle((0, 0, panel_w - 1, panel_h - 1), fill=(0, 0, 0))
 
-        # Update dot count every DOT_CYCLE_SPEED seconds
-        if now - last_dot_time >= DOT_CYCLE_SPEED:
-            dot_count = (dot_count + 1) % 4
-            last_dot_time = now
-
-        if pause_until is not None:
-            # Plane is off-screen to the right. Keep it hidden during the gap.
-            if now >= pause_until:
+        # ── Plane movement ──
+        if pause_until_plane is not None:
+            if now >= pause_until_plane:
                 plane_x = -PLANE_WIDTH
-                pause_until = None
-                last_frame_time = now
-
-        elif now - last_frame_time >= PLANE_SPEED:
-            plane_x += 1
-            last_frame_time = now
-
-            # plane_x refers to the sprite's left edge.
-            # Once that left edge reaches panel_w, the full plane is off-screen right.
-            if plane_x >= panel_w:
-                pause_until = now + PLANE_PAUSE_SECONDS
-                # Pick a new airline for the next pass
+                pause_until_plane = None
+                last_plane_time = now
+                # Pick new livery when plane resets
                 current_scheme = get_random_airline()
-                plane_pixels = build_plane_pixels(current_scheme)
+                current_pixels = build_plane_pixels(current_scheme)
                 print(f"[IDLE] Next livery: {current_scheme['name']}")
+        elif now - last_plane_time >= PLANE_SPEED:
+            plane_x += 1
+            last_plane_time = now
+            if plane_x >= panel_w:
+                pause_until_plane = now + PLANE_PAUSE_SECONDS
 
-        # Draw plane on top half
-        for px, py, color in plane_pixels:
+        # ── Text scroll movement ──
+        if pause_until_scroll is not None:
+            if now >= pause_until_scroll:
+                scroll_x = panel_w
+                pause_until_scroll = None
+                last_scroll_time = now
+        elif now - last_scroll_time >= SCROLL_SPEED:
+            scroll_x -= 1
+            last_scroll_time = now
+            if scroll_x < -text_width:
+                pause_until_scroll = now + TEXT_PAUSE_SECONDS
+
+        # ── Draw plane ──
+        for px, py, color in current_pixels:
             x = plane_x + px
             y = py + PLANE_Y_OFFSET
-            if 0 <= x < panel_w and 0 <= py < panel_h:
+            if 0 <= x < panel_w and 0 <= y < panel_h:
                 draw.point((x, y), fill=color)
 
-        # Draw scanning text on bottom half
-        dots = "." * dot_count
-        scanning_text = f"Scanning{dots}"
-        draw.text((5, 20), scanning_text, font=font, fill=config.COLOR_IDLE)
+        # ── Draw scrolling text ──
+        draw.text((scroll_x, 20), scroll_text,
+                  font=font, fill=config.COLOR_IDLE)
 
         matrix.SetImage(image, unsafe=False)
-        time.sleep(0.01)  # ~100fps refresh, actual speed controlled above
+        time.sleep(0.01)
 
 
 # ── Mock mode ──────────────────────────────────────────────────────────────────
