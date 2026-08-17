@@ -13,7 +13,7 @@ except ImportError:
 
 import config
 
-FONT_SIZE_SMALL = 8
+FONT_SIZE_SMALL = 10
 FLIGHT_DISPLAY_SECONDS = 15
 DOT_CYCLE_SPEED = 0.5  # seconds per dot step
 PLANE_Y_OFFSET = 1
@@ -87,7 +87,7 @@ def render_idle(matrix, font, stop_event):
     last_plane_time = time.monotonic()
 
     # Scroll state
-    scroll_text = "Scanning the sky"
+    scroll_text = "Scanning the skies"
     
     # Measure text width
     dummy = Image.new("RGB", (1, 1))
@@ -99,7 +99,7 @@ def render_idle(matrix, font, stop_event):
     pause_until_scroll = None
     last_scroll_time = time.monotonic()
     SCROLL_SPEED = 0.06         # seconds per pixel
-    TEXT_PAUSE_SECONDS = 1.5    # pause after text scrolls off left
+    TEXT_PAUSE_SECONDS = 1      # pause after text scrolls off left
 
     image = Image.new("RGB", (panel_w, panel_h))
     draw = ImageDraw.Draw(image)

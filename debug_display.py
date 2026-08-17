@@ -27,7 +27,7 @@ def get_display_flights():
             display_queue.extend(TEST_FLIGHTS)
             flights_injected = True
 
-    return list(display_queue)
+    return None
 
 def consume_display_flight(callsign):
     global flights_injected
