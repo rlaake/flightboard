@@ -1047,7 +1047,7 @@ IATA_TO_ICAO = {
 # Used when ADS-B callsign doesn't match MSP departure table directly
 OPERATING_TO_MARKETING = {
     "SKW": "DAL",  # SkyWest -> Delta, United, American, Alaska
-    "FLG": "DAL",  # Endeavor Air -> Delta
+    "EDV": "DAL",  # Endeavor Air -> Delta
     "RPA": "UAL",  # Republic Airways -> United, American
     "GJS": "UAL",  # GoJet -> United
     "UCA": "UAL",  # CommutAir -> United
